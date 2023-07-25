@@ -12,7 +12,7 @@
 #include <bpf/libbpf.h>
 #include <sys/resource.h>
 #define MAP_NAME "packet_size_map"
-
+#define BUFFER_SIZE 1024
 int load_ebpf_program(struct bpf_object **obj,const char *file) {
     int first_prog_fd = -1;
 
@@ -94,15 +94,14 @@ int main(int argc, char **argv) {
 
     __u32 key = htonl(0);
     __u64 value;
-
-
     
-
+#if 1
     if (setsockopt(sock_fd, SOL_SOCKET, SO_ATTACH_BPF, &prog_fd, sizeof(prog_fd)) < 0) {
         perror("setsockopt");
         close(sock_fd);
         return 1;
     }
+#endif
     /* ... */
 
     int server_port = 3000;
@@ -123,9 +122,15 @@ int main(int argc, char **argv) {
         close(sock_fd);
         return 1;
     }
-    
-    printf("Server is listening on port %d...\n", server_port);
+    int reuse = 1;
+     if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == -1) {
+        perror("setsockopt");
+        close(sock_fd);
+        return 1;
+    }
 
+    printf("Server is listening on port %d...\n", server_port);
+    char buffer[BUFFER_SIZE];
     while (1) {
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
@@ -142,11 +147,17 @@ int main(int argc, char **argv) {
             __u64 packet_size;
             if (bpf_map_lookup_elem(map_fd, &key, &packet_size)) {
                 perror("Could not read BPF map");
-                exit(EXIT_FAILURE);
+                //exit(EXIT_FAILURE);
             }
-            printf("Current packet size: %llu bytes\n", packet_size); // Display the current packet size
-
-            
+            printf("Current packet size: %llu bytes\n", packet_size); // Display the current packet siz
+           
+            int recv_len = recv(client_fd, buffer, BUFFER_SIZE-1, 0);
+            if (recv_len == -1) {
+                perror("recv");
+            } else {
+                buffer[recv_len] = '\0';
+                printf("Received message: %s\n", buffer);
+            }
             close(client_fd);
 
         }
