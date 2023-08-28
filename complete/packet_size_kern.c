@@ -11,8 +11,15 @@ struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, __u32);
     __type(value, __u64);
-    __uint(max_entries, 2);
-} value_map SEC(".maps"); // 수정할 부분
+    __uint(max_entries, 1);
+} packet_size_map SEC(".maps"); // 수정할 부분
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, 1);
+} memory_map SEC(".maps"); // 수정할 부분
 
 
 static inline int bpf_memcmp(const void *s1, const void *s2, unsigned int n) {
@@ -30,8 +37,7 @@ static inline int bpf_memcmp(const void *s1, const void *s2, unsigned int n) {
 
 SEC("prog")
 int drop_all(struct __sk_buff *skb) {
-    __u32 size_key = 0; // Since max_entries is 1, we'll just use 0 as the key
-    __u32 offset_key = 1; // Since max_entries is 1, we'll just use 0 as the key
+    __u32 key = 0; // Since max_entries is 1, we'll just use 0 as the key
    __u64 packet_size = skb->len;
 
     char delimiter[2];
@@ -70,8 +76,9 @@ int drop_all(struct __sk_buff *skb) {
         }
     }
     
-    bpf_map_update_elem(&value_map, &size_key, &packet_size, BPF_ANY);
-    bpf_map_update_elem(&value_map, &offset_key, &offset, BPF_ANY);
+//    bpf_map_update_elem(&packet_size_map, &key, &packet_size, BPF_ANY);
+    bpf_map_update_elem(&packet_size_map, &key, &offset, BPF_ANY);
+//    return 0;
     return -1;
 
 }

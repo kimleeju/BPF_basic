@@ -11,7 +11,7 @@
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 #include <sys/resource.h>
-#define MAP_NAME "value_map"
+#define MAP_NAME "packet_size_map"
 #define BUFFER_SIZE 1024
 int load_ebpf_program(struct bpf_object **obj,const char *file) {
     int first_prog_fd = -1;
@@ -143,21 +143,17 @@ int main(int argc, char **argv) {
             inet_ntop(AF_INET, &client_addr.sin_addr, client_ip_str, INET_ADDRSTRLEN);
             printf("Accepted connection from %s:%d\n", client_ip_str, ntohs(client_addr.sin_port));
 
-            __u32 size_key = 0; // We used 0 as the key in the BPF program
-            __u32 offset_key = 1; // We used 0 as the key in the BPF program
+            __u32 key = 0; // We used 0 as the key in the BPF program
             __u64 packet_size;
-            if (bpf_map_lookup_elem(map_fd, &size_key, &packet_size)) {
+            
+            if (bpf_map_lookup_elem(map_fd, &key, &value)) {
+            //if (bpf_map_lookup_elem(map_fd, &key, &packet_size)) {
                 perror("Could not read BPF map");
                 //exit(EXIT_FAILURE);
             }
-#if 1
-            __u64 value_offset;
-            if (bpf_map_lookup_elem(map_fd, &offset_key, &value_offset)) {
-                perror("Could not read BPF map");
-                //exit(EXIT_FAILURE);
-            }
-#endif
-            printf("Current packet size: %llu bytes, value offset: %llu\n", packet_size,value_offset); // Display the current packet siz
+//            printf("Current packet size: %llu bytes\n", packet_size); // Display the current packet siz
+            printf("The packet data stored in the map is: %llu\n", value);
+
             int recv_len = recv(client_fd, buffer, BUFFER_SIZE-1, 0);
             if (recv_len == -1) {
                 perror("recv");

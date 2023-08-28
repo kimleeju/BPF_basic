@@ -9,7 +9,7 @@
 int main(int argc, char **argv) {
     int sockfd;
     struct sockaddr_in server_addr;
-    char message[] = "Hello, Server!";
+    char message[] = "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvalue\r\n";
 
     // 소켓 생성
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(3000);
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server_addr.sin_addr.s_addr = inet_addr("203.253.13.73");
 
     // 서버에 연결
     if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
