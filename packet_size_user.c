@@ -11,7 +11,7 @@
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 #include <sys/resource.h>
-#define MAP_NAME "value_map"
+#define MAP_NAME "packet_size_map"
 #define BUFFER_SIZE 1024
 int load_ebpf_program(struct bpf_object **obj,const char *file) {
     int first_prog_fd = -1;

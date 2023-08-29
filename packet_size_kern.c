@@ -12,7 +12,7 @@ struct {
     __type(key, __u32);
     __type(value, __u64);
     __uint(max_entries, 2);
-} value_map SEC(".maps"); // 수정할 부분
+} packet_size_map SEC(".maps"); // 수정할 부분
 
 
 static inline int bpf_memcmp(const void *s1, const void *s2, unsigned int n) {
@@ -36,7 +36,6 @@ int drop_all(struct __sk_buff *skb) {
 
     char delimiter[2];
     char redis_cmd[3];
-    
     struct tcphdr tcp_header;
     if (bpf_skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr), &tcp_header, sizeof(tcp_header)) != 0)
         return -1; // Drop packet
@@ -48,7 +47,7 @@ int drop_all(struct __sk_buff *skb) {
     if(bpf_skb_load_bytes(skb, ETH_HLEN+sizeof(struct iphdr)+tcp_hdr_len, &redis_cmd,sizeof(redis_cmd)) !=0 )
          return -1;
 
-    if(bpf_memcmp(redis_cmd,"set",3)!=0)
+    if(bpf_memcmp(redis_cmd,"set",3)!=0 && bpf_memcmp(redis_cmd,"SET",3)!=0)
          return -1;
 
     __u64 offset = ETH_HLEN+sizeof(struct iphdr)+tcp_hdr_len+3; // set(3) \r\n(2) $3\r\n(4) key\r\n(5)
@@ -64,14 +63,12 @@ int drop_all(struct __sk_buff *skb) {
           if(bpf_memcmp(delimiter,"\r\n",2)==0){
               /* Found the next \r\n. The value starts after this */
               offset += i+2;
-                bpf_printk("offset = %d\n",offset);
               break;
             }
         }
     }
-    
-    bpf_map_update_elem(&value_map, &size_key, &packet_size, BPF_ANY);
-    bpf_map_update_elem(&value_map, &offset_key, &offset, BPF_ANY);
+    bpf_map_update_elem(&packet_size_map, &size_key, &packet_size, BPF_ANY);
+    bpf_map_update_elem(&packet_size_map, &offset_key, &offset, BPF_ANY);
     return -1;
 
 }
