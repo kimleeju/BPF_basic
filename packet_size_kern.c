@@ -67,6 +67,8 @@ int drop_all(struct __sk_buff *skb) {
             }
         }
     }
+    packet_size -= offset + 2; // 2(\r\n)
+    offset -= (ETH_HLEN+sizeof(struct iphdr)-2);
     bpf_map_update_elem(&packet_size_map, &size_key, &packet_size, BPF_ANY);
     bpf_map_update_elem(&packet_size_map, &offset_key, &offset, BPF_ANY);
     return -1;
