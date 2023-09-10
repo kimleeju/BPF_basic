@@ -40,8 +40,8 @@ int drop_all(struct __sk_buff *skb) {
     __u64 offset = 1;
 
     if (bpf_skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr), &tcp_header, sizeof(tcp_header)) != 0){
-        packet_size = 0;
-        bpf_map_update_elem(&packet_size_map, &size, &packet_size, BPF_ANY);
+//        packet_size = 0;
+//        bpf_map_update_elem(&packet_size_map, &size, &packet_size, BPF_ANY);
         return -1;
     }
    
@@ -77,7 +77,6 @@ int drop_all(struct __sk_buff *skb) {
               continue;
           if(bpf_memcmp(delimiter,"\r\n",2)==0){
               offset += i+2;
-
               if (j == 2){
                 val_ptr = offset+1; //$제거 
              }
@@ -90,7 +89,6 @@ int drop_all(struct __sk_buff *skb) {
 //    bpf_printk("%s\n",value_size); 
     packet_size -= offset + 2; // 2(\r\n)
     offset -= (ETH_HLEN+sizeof(struct iphdr)-2);
-    
     bpf_map_update_elem(&packet_size_map, &size, &value_size, BPF_ANY);
     //bpf_map_update_elem(&packet_size_map, &size, &packet_size, BPF_ANY);
     bpf_map_update_elem(&packet_size_map, &value_offset, &offset, BPF_ANY);

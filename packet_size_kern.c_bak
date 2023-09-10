@@ -49,18 +49,19 @@ int drop_all(struct __sk_buff *skb) {
     __u32 tcp_hdr_len = tcp_header.doff*2;
 
     if(bpf_skb_load_bytes(skb, ETH_HLEN+sizeof(struct iphdr)+tcp_hdr_len, &redis_cmd,sizeof(redis_cmd)) !=0 ){
-        packet_size = 0;
-        bpf_map_update_elem(&packet_size_map, &size, &packet_size, BPF_ANY);
         return -1;
     }
 
     if(bpf_memcmp(redis_cmd,"set",3)!=0 && bpf_memcmp(redis_cmd,"SET",3)!=0){
+        if(bpf_memcmp(redis_cmd,"xxx",3)==0 || bpf_memcmp(redis_cmd,"XXX",3)==0)
+            return -1;
+
         packet_size = 0;
         bpf_map_update_elem(&packet_size_map, &size, &packet_size, BPF_ANY);
 #if 1
-        if(bpf_memcmp(redis_cmd,"X",1)==0 || bpf_memcmp(redis_cmd,"x",1)==0){
-    //        offset = 0;
-     //       bpf_map_update_elem(&packet_size_map, &value_offset, &offset, BPF_ANY);
+        if(bpf_memcmp(redis_cmd,"",1)==0){
+            offset = 0;
+            bpf_map_update_elem(&packet_size_map, &value_offset, &offset, BPF_ANY);
         }
 #endif
         return -1;
