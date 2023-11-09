@@ -121,11 +121,11 @@ int drop_all(struct __sk_buff *skb) {
     union port_t port;
     port.ports = load_word(skb,nhoff);
 
-//    bpf_printk("port : %u\n",port.port16[1]);
+    bpf_printk("port : %u\n",port.port16[1]);
 
 #if 1
     int hash_idx = find_index(port.port16[1]);
-//    bpf_printk("hash_idx : %d\n",hash_idx);
+    bpf_printk("hash_idx : %d\n",hash_idx);
 
 
     if(bpf_memcmp(redis_cmd,"set",3)!=0 && bpf_memcmp(redis_cmd,"SET",3)!=0){
@@ -153,7 +153,7 @@ int drop_all(struct __sk_buff *skb) {
             }
         }
     }
-//    bpf_printk("22222222\n"); 
+    bpf_printk("22222222\n"); 
     bpf_skb_load_bytes(skb,val_ptr, &pinfo.size,sizeof(pinfo.size));
 //    packet_size -= offset + 2; // 2(\r\n)
     offset -= (ETH_HLEN+sizeof(struct iphdr)-2);

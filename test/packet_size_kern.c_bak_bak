@@ -1,5 +1,5 @@
-#include <linux/bpf.h>
 //#include <linux/in.h>
+#include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_endian.h>
@@ -9,6 +9,8 @@
 #include <string.h>
 #include <linux/in.h>
 #include "bpf_legacy.h"
+#define QUEUE_MAX_ENTRIES 10000
+#define MAX_PORTS 4
 struct packet_info {
     __u64 offset;
     char size[10]; // Change this to a character array
@@ -19,12 +21,52 @@ union port_t{
         __be16 port16[2];
 };
 
+#if 0
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u64); // Use a 64-bit key to accommodate larger number of packets
+    __uint(type, BPF_MAP_TYPE_QUEUE);
     __type(value, struct packet_info); // Use a struct as the value type
-    __uint(max_entries, 1); // Increase the map size
+    __uint(max_entries, QUEUE_MAX_ENTRIES); // Increase the map size
 } packet_size_map SEC(".maps");
+#endif
+
+#if 1
+
+struct {
+    __uint(type, BPF_MAP_TYPE_QUEUE);
+    __type(value, struct packet_info);
+    __uint(max_entries, QUEUE_MAX_ENTRIES);
+} packet_map_template0 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_QUEUE);
+    __type(value, struct packet_info);
+    __uint(max_entries, QUEUE_MAX_ENTRIES);
+} packet_map_template1 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_QUEUE);
+    __type(value, struct packet_info);
+    __uint(max_entries, QUEUE_MAX_ENTRIES);
+} packet_map_template2 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_QUEUE);
+    __type(value, struct packet_info);
+    __uint(max_entries, QUEUE_MAX_ENTRIES);
+} packet_map_template3 SEC(".maps");
+
+#if 0
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(max_entries, MAX_PORTS);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(int));
+    int inner_map_fd[MAX_PORTS];
+} map_array SEC(".maps") = {
+    .inner_map_fd = (&packet_map_template0,&packet_map_template1,&packet_map_template2,&packet_map_template3),
+};
+#endif
+#endif
 
 
 static inline int bpf_memcmp(const void *s1, const void *s2, unsigned int n) {
@@ -51,26 +93,42 @@ int drop_all(struct __sk_buff *skb) {
     struct tcphdr tcp_header;
     __u64 offset = 1;
 
-    static __u64 packet_id = 0;
+    static __u64 packet_id[MAX_PORTS];
     struct packet_info pinfo = {};
 #endif
     __u32 nhoff = skb->cb[0];
-
-    __be32 src = load_word(skb,nhoff + offsetof(struct iphdr, saddr));
-    __be32 dst = load_word(skb,nhoff + offsetof(struct iphdr, daddr));
+//    __be32 src = load_word(skb,nhoff + offsetof(struct iphdr, saddr));
+//    __be32 dst = load_word(skb,nhoff + offsetof(struct iphdr, daddr));
     union port_t port;
     port.ports = load_word(skb,nhoff);
 
 //    bpf_printk("port : %u\n",port.port16[0]);
     bpf_printk("port : %u\n",port.port16[1]);
 
-	
+    struct bpf_map* packet_size_map;
+//    int port_array[MAX_PORTS];
+//    memset(port_array,-1,sizeof(port_array));
+
+    int hash_value = (port.port16[1] / MAX_PORTS ) % MAX_PORTS;
+    if(hash_value == 0){
+        packet_size_map = &packet_map_template0;
+    }    
+    else if(hash_value == 1){
+        packet_size_map = &packet_map_template1;
+    }
+    else if(hash_value == 2){
+        packet_size_map = &packet_map_template2;
+    }
+    else if(hash_value == 3){
+        packet_size_map = &packet_map_template3;
+    }
 
 
     if (bpf_skb_load_bytes(skb, ETH_HLEN + sizeof(struct iphdr), &tcp_header, sizeof(tcp_header)) != 0){
         return -1;
     }
 
+#if 1
 
     __u32 tcp_hdr_len = tcp_header.doff*2;
     
@@ -83,11 +141,14 @@ int drop_all(struct __sk_buff *skb) {
             return -1;
         
         memset(pinfo.size, 0, sizeof(pinfo.size));
-        bpf_map_update_elem(&packet_size_map, &packet_id, &pinfo, BPF_ANY);
+
+        bpf_map_push_elem(packet_size_map, &pinfo, BPF_ANY);
+        //        bpf_map_update_elem(&packet_size_map, &packet_id, &pinfo, BPF_ANY);
 #if 1
         if(bpf_memcmp(redis_cmd,"",1)==0){
 //            pinfo.offset=0;
-            bpf_map_update_elem(&packet_size_map, &packet_id, &pinfo, BPF_ANY);
+                bpf_map_push_elem(packet_size_map, &pinfo, BPF_ANY);
+//            bpf_map_update_elem(&packet_size_map, &packet_id, &pinfo, BPF_ANY);
             
             //            offset = 0;
 //            bpf_map_update_elem(&packet_size_map, &value_offset, &offset, BPF_ANY);
@@ -117,9 +178,11 @@ int drop_all(struct __sk_buff *skb) {
 //    packet_size -= offset + 2; // 2(\r\n)
     offset -= (ETH_HLEN+sizeof(struct iphdr)-2);
     pinfo.offset = offset;
-    bpf_map_update_elem(&packet_size_map, &packet_id, &pinfo, BPF_ANY);
-    return -1;
+    //bpf_map_update_elem(&packet_size_map, &packet_id, &pinfo, BPF_ANY);
 
+    bpf_map_push_elem(packet_size_map, &pinfo, BPF_ANY);
+#endif
+    return -1;
 }
 
 
